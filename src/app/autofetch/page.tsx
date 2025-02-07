@@ -31,8 +31,10 @@ export default function AutofetchPage() {
     toast.promise(promise, {
       loading: "Starting automation...",
       success: () => {
-        router.push("/knowledge");
-        return "Automation started successfully!";
+        setTimeout(() => {
+          router.push("/knowledge");
+        }, 5000);
+        return "Automation started successfully! It is runnning in the background and will take a few minutes to complete.";
       },
       error: "Failed to start automation",
     });
@@ -48,28 +50,33 @@ export default function AutofetchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900/50 to-gray-900 relative overflow-hidden">
+    <div className="min-h-screen pt-24 bg-gradient-to-br from-gray-900 via-blue-900/50 to-gray-900 relative overflow-hidden">
       <Toaster
         position="top-center"
         toastOptions={{
           duration: 4000,
           style: {
             background: "#1F2937",
-            color: "#fff",
-            border: "1px solid rgba(59, 130, 246, 0.2)",
+            color: "#E5E7EB",
+            border: "1px solid rgba(59, 130, 246, 0.5)",
+            backdropFilter: "blur(8px)",
+            fontSize: "1rem",
+            padding: "16px",
+            maxWidth: "400px",
+            boxShadow: "0 8px 16px rgba(0, 0, 0, 0.3)",
           },
           success: {
             icon: "🚀",
             style: {
-              background: "rgba(16, 185, 129, 0.1)",
-              border: "1px solid rgba(16, 185, 129, 0.2)",
+              background: "rgba(16, 185, 129, 0.2)",
+              border: "1px solid rgba(16, 185, 129, 0.5)",
             },
           },
           error: {
             icon: "❌",
             style: {
-              background: "rgba(239, 68, 68, 0.1)",
-              border: "1px solid rgba(239, 68, 68, 0.2)",
+              background: "rgba(239, 68, 68, 0.2)",
+              border: "1px solid rgba(239, 68, 68, 0.5)",
             },
           },
         }}

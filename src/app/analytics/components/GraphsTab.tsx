@@ -1,56 +1,14 @@
+import { useState, useMemo, useEffect } from "react";
 import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
-  AreaChart,
-  Area,
+  Tooltip,
+  ResponsiveContainer,
 } from "recharts";
 import { KnowledgeItem } from "@/types/knowledge";
-
-const COLORS = [
-  "#3B82F6", // blue-500
-  "#8B5CF6", // purple-500
-  "#EC4899", // pink-500
-  "#10B981", // emerald-500
-  "#F59E0B", // amber-500
-  "#6366F1", // indigo-500
-  "#14B8A6", // teal-500
-  "#F43F5E", // rose-500
-  "#8B5CF6", // violet-500
-  "#06B6D4", // cyan-500
-];
-
-interface CustomTooltipProps {
-  active?: boolean;
-  payload?: Array<{
-    name: string;
-    value: number;
-    payload: {
-      name: string;
-      value: number;
-    };
-  }>;
-}
-
-const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-gray-800/90 backdrop-blur-sm border border-gray-700 rounded-lg p-4 shadow-xl">
-        <p className="text-cyan-200 font-medium">{payload[0].payload.name}</p>
-        <p className="text-gray-300">
-          Count: <span className="text-cyan-200">{payload[0].value}</span>
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
 
 interface GraphsTabProps {
   processedData: {
@@ -64,181 +22,101 @@ interface GraphsTabProps {
   projectTrendData: { date: string; rpoints: number }[];
 }
 
-export const GraphsTab = ({
-  processedData,
-  knowledge,
-  selectedProject,
-  setSelectedProject,
-  windowWidth,
-  projectTrendData,
-}: GraphsTabProps) => {
+export const GraphsTab = ({ processedData, knowledge }: GraphsTabProps) => {
+  const [selectedProjectState, setSelectedProjectState] = useState("");
+
+  // Set initial selected project
+  useEffect(() => {
+    if (processedData.projectDistribution.length > 0 && !selectedProjectState) {
+      setSelectedProjectState(processedData.projectDistribution[0].name);
+    }
+  }, [processedData.projectDistribution, selectedProjectState]);
+
+  // Get trend data for selected project
+  const projectTrendDataState = useMemo(() => {
+    if (!selectedProjectState || !knowledge) return [];
+
+    // Create a map of dates to rpoints for the selected project
+    const trendMap = new Map<string, number>();
+
+    knowledge.forEach((entry) => {
+      const date = new Date(entry.date).toLocaleDateString();
+      entry.llm_answer.projects.forEach((project) => {
+        if (project.coin_or_project === selectedProjectState) {
+          const rpoints = Number(project.rpoints || 0);
+          trendMap.set(date, (trendMap.get(date) || 0) + rpoints);
+        }
+      });
+    });
+
+    // Convert map to array and sort by date
+    return Array.from(trendMap.entries())
+      .map(([date, rpoints]) => ({ date, rpoints }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [selectedProjectState, knowledge]);
+
+  const top10Projects = processedData.projectDistribution.slice(0, 10);
+
   return (
-    <>
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-8 sm:mb-12">
-        {/* Total Entries */}
-        <div className="p-4 sm:p-6 rounded-xl bg-gradient-to-r from-blue-900/20 to-purple-900/20 border border-blue-500/20 backdrop-blur-sm">
-          <h3 className="text-gray-400 text-xs sm:text-sm font-medium mb-2">
-            Total Entries
-          </h3>
-          <p className="text-lg sm:text-2xl font-bold text-cyan-200">
-            {knowledge?.length || 0}
-          </p>
-        </div>
-        {/* Other stats cards... */}
+    <div className="space-y-8">
+      {/* Project Selection */}
+      <div className="bg-gray-900/50 rounded-xl p-6 backdrop-blur-sm border border-gray-800/50">
+        <h3 className="text-lg font-semibold text-cyan-200 mb-4">
+          Top 10 Projects by R-Points
+        </h3>
+        <select
+          value={selectedProjectState}
+          onChange={(e) => setSelectedProjectState(e.target.value)}
+          className="w-full bg-gray-800/50 text-gray-200 border border-gray-700/50 rounded-lg py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+        >
+          {top10Projects.map((project) => (
+            <option key={project.name} value={project.name}>
+              {project.name} ({project.value} R-Points)
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Chart Grid */}
-      <div className="grid grid-cols-1 gap-6 sm:gap-8">
-        {/* Pie Chart */}
-        <div className="p-6 rounded-xl bg-gradient-to-r from-pink-900/20 via-red-900/20 to-orange-900/20 border border-pink-500/20 backdrop-blur-sm">
-          <h2 className="text-lg sm:text-xl font-bold text-cyan-200 mb-4">
-            Top 10 Coins by Total R-Points
-          </h2>
-          <div className="h-[400px] sm:h-[600px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={processedData.projectDistribution.slice(0, 10)}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={windowWidth < 640 ? 60 : 120}
-                  outerRadius={windowWidth < 640 ? 100 : 200}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, value, percent }) =>
-                    windowWidth < 640
-                      ? `${name.slice(0, 8)}...${(percent * 100).toFixed(1)}%`
-                      : `${name} (${value} total rpoints - ${(
-                          percent * 100
-                        ).toFixed(1)}%)`
-                  }
-                >
-                  {processedData.projectDistribution
-                    .slice(0, 10)
-                    .map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Area Chart */}
-        <div className="p-6 rounded-xl bg-gradient-to-r from-blue-900/20 via-purple-900/20 to-pink-900/20 border border-blue-500/20 backdrop-blur-sm">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <h2 className="text-lg sm:text-xl font-bold text-cyan-200">
-              Coin R-Points Over Time
-            </h2>
-            <select
-              className="w-full sm:w-auto bg-gray-900/60 border border-gray-700/50 rounded-lg py-2 px-4 text-sm sm:text-base text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400/50"
-              onChange={(e) => setSelectedProject(e.target.value)}
-              value={selectedProject}
+      {/* Trend Chart */}
+      <div className="bg-gray-900/50 rounded-xl p-6 backdrop-blur-sm border border-gray-800/50">
+        <h3 className="text-lg font-semibold text-cyan-200 mb-4">
+          R-Points Trend for {selectedProjectState}
+        </h3>
+        <div className="h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={projectTrendDataState}
+              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
             >
-              <option value="">Select a project</option>
-              {processedData.projectDistribution.slice(0, 10).map((project) => (
-                <option key={project.name} value={project.name}>
-                  {project.name} ({project.value} total rpoints)
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="h-[300px] sm:h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={projectTrendData}
-                margin={{
-                  top: 10,
-                  right: 10,
-                  left: windowWidth < 640 ? 0 : 20,
-                  bottom: 5,
+              <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+              <XAxis
+                dataKey="date"
+                stroke="#9ca3af"
+                tick={{ fill: "#9ca3af" }}
+              />
+              <YAxis stroke="#9ca3af" tick={{ fill: "#9ca3af" }} />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: "rgba(17, 24, 39, 0.8)",
+                  border: "1px solid rgba(59, 130, 246, 0.5)",
+                  borderRadius: "0.5rem",
+                  backdropFilter: "blur(8px)",
                 }}
-              >
-                <defs>
-                  <linearGradient id="colorRpoints" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorLine" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#60A5FA" stopOpacity={1} />
-                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={1} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#374151"
-                  opacity={0.3}
-                />
-                <XAxis
-                  dataKey="date"
-                  stroke="#9CA3AF"
-                  tick={{
-                    fill: "#9CA3AF",
-                    fontSize: windowWidth < 640 ? 10 : 12,
-                  }}
-                  tickFormatter={(date) =>
-                    new Date(date).toLocaleDateString(undefined, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }
-                />
-                <YAxis
-                  stroke="#9CA3AF"
-                  tick={{
-                    fill: "#9CA3AF",
-                    fontSize: windowWidth < 640 ? 10 : 12,
-                  }}
-                />
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="bg-gray-800/90 backdrop-blur-sm border border-gray-700/50 rounded-lg p-4 shadow-xl">
-                          <p className="text-cyan-200 font-medium mb-1">
-                            {new Date(label).toLocaleDateString(undefined, {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-blue-400" />
-                            <p className="text-gray-300">
-                              R-Points:{" "}
-                              <span className="text-cyan-200 font-medium">
-                                {payload[0].value}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="rpoints"
-                  stroke="url(#colorLine)"
-                  strokeWidth={2}
-                  fill="url(#colorRpoints)"
-                  dot={{ r: 4 }}
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+                labelStyle={{ color: "#e5e7eb" }}
+                itemStyle={{ color: "#93c5fd" }}
+              />
+              <Line
+                type="monotone"
+                dataKey="rpoints"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                dot={{ fill: "#3b82f6", r: 4 }}
+                activeDot={{ r: 6, fill: "#60a5fa" }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       </div>
-    </>
+    </div>
   );
 };
